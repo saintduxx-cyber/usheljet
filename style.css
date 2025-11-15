@@ -1,0 +1,290 @@
+/* ===== СБРОС / БАЗА ===== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+:root{
+  --bg:#0b0917;
+  --muted:#a9acc4;
+  --text:#ffffff;
+  --purple:#7b4bff;
+  --glow: rgba(123,75,255,.45);
+}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, "SF Pro Display", Segoe UI, Roboto, Arial, sans-serif;
+  display:flex; align-items:center; justify-content:center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.wrap{
+  width: min(900px, 100vw);
+  padding: clamp(8px, 2vw, 16px);
+  margin: 0 auto;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* ===== ОКНО АНИМАЦИИ (центр, пропорции, локальный «rem») ===== */
+.stage{
+  --ui-rem: 16px;          /* выставляется из JS под текущую ширину окна */
+  font-size: var(--ui-rem);
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  aspect-ratio: 900 / 440;
+  height: auto;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(800px 360px at 30% 100%, rgba(123,75,255,.12), rgba(0,0,0,0)) no-repeat,
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border: 1px solid rgba(255,255,255,.07);
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+@supports not (aspect-ratio: 1 / 1){
+  .stage{ height: min(440px, 56vh); }
+}
+
+/* Полотно под анимацию */
+.sky, .trail { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.sky{
+  background-image:
+    radial-gradient(2px 2px at 12% 22%, rgba(255,255,255,.8) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 36% 8%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.8px 1.8px at 64% 18%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 80% 30%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 18% 72%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 66% 78%, rgba(255,255,255,.8) 50%, transparent 51%);
+  opacity:.7;
+}
+
+/* Центральный коэффициент */
+.coeff-center{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-weight:900; font-size:min(11vw, 58px);
+  letter-spacing:.5px; text-shadow:0 12px 36px rgba(0,0,0,.55);
+  color:#8c3cee; z-index:5; pointer-events:none; user-select:none;
+}
+
+/* ===== СПРАЙТ: Lucky + Light + Fire (размеры в em — масштабируются вместе) ===== */
+.jet{
+  position:absolute; left: -40px; top: -88px;
+  width: 7.5em;               /* 7.5 * --ui-rem, на десктопе ~120px */
+  height:auto;
+  transform-origin:40% 50%;
+  filter:drop-shadow(0 14px 28px rgba(0,0,0,.55));
+  pointer-events:none; user-select:none; z-index:8;
+  opacity: 0; /* до старта не видим */
+}
+.light{
+  position:absolute; left:-27px; top:-80px;
+  width:20em; height:auto;   /* вместе с jet уменьшается/растёт */
+  transform:translate(-9999px,-9999px);
+  pointer-events:none; user-select:none;
+  filter:saturate(110%) blur(.2px);
+  mix-blend-mode:screen;
+  opacity:0; z-index:3;
+}
+.fire{
+  position:absolute; left: -153px; top: -200px;
+  width:5em; height:auto;    /* вместе с jet уменьшается/растёт */
+  transform:translate(-9999px,-9999px) rotate(0deg);
+  transform-origin:55% 85%;
+  pointer-events:none; user-select:none;
+  filter:drop-shadow(0 0 12px rgba(255,160,0,.65));
+  opacity:0; z-index:7;
+  animation: flame 0.8s ease-in-out infinite;
+}
+@keyframes flame{
+  0%,100%{ transform: translate(var(--fx,-9999px),var(--fy,-9999px)) rotate(var(--fa,0deg)) scaleY(-1) scale(0.98); }
+  50%{    transform: translate(var(--fx,-9999px),var(--fy,-9999px)) rotate(var(--fa,0deg)) scaleY(-1) scale(1.06); }
+}
+
+/* ===== ЛОАДЕР / ПОДГОТОВКА — адаптивная колонка ===== */
+.preui{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, rgba(12,9,24,.55), rgba(12,9,24,.35));
+  backdrop-filter: blur(6px);
+  z-index:12; transition: opacity .25s ease; opacity:0; pointer-events:none;
+  padding: clamp(8px, 4vw, 18px);
+}
+.preui.show{ opacity:1; pointer-events:auto; }
+
+/* Стек для содержимого лоадера */
+.preui__stack{
+  width:100%;
+  max-width: min(520px, 90%);
+  display:flex; flex-direction:column; align-items:center; gap: clamp(8px, 2.6vw, 16px);
+  text-align:center;
+}
+.preui__loader img{
+  width: clamp(64px, 22vw, 120px);
+  height:auto;
+  display:block;
+}
+.preui__title{
+  font-weight:800;
+  letter-spacing:.3px;
+  color:#d9d4ff;
+  font-size: clamp(14px, 4.2vw, 18px);
+}
+.preui__bar{
+  width: min(460px, 86%);
+  height: clamp(8px, 2vw, 12px);
+  background:rgba(255,255,255,.08);
+  border-radius:999px; overflow:hidden;
+}
+.preui__fill{ height:100%; width:0%; background:#8c3cee; box-shadow:0 0 18px rgba(159,232,209,.35) inset; }
+
+/* Старая «ring» оставлена на всякий случай, но спрятана на маленьких экранах */
+.ring{ display:none; }
+
+/* Облака */
+.clouds{ position:absolute; left:0; right:0; bottom:-12px; height:120px; pointer-events:none; z-index:4; }
+.cloud{ position:absolute; bottom:0; opacity:.25; }
+.c1{ left:4%; width:220px; animation:float 16s ease-in-out infinite; }
+.c2{ left:36%; width:260px; animation:float 20s ease-in-out infinite .6s; }
+.c3{ right:6%; width:220px; transform:scaleX(-1); animation:float 18s ease-in-out infinite 1.2s; }
+@keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+
+/* Тряска при краше */
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px)}50%{transform:translate(-3px, 2px)}75%{transform:translate(2px, 1px)}}
+.stage.shake{animation:shake .35s ease both}
+
+/* ===== КНОПКИ ===== */
+.controls{
+  display:flex; justify-content:center; align-items:center; gap:10px;
+  padding:14px 0 4px;
+}
+.btn-start{
+  width: clamp(220px, 60%, 360px);
+  border-radius: 12px;
+  line-height: 44px;
+  letter-spacing: 0.06em;
+  color: #fafafa;
+  text-shadow: 0 0 20px rgba(138, 138, 138, .8);
+  text-transform: uppercase;
+  background: linear-gradient(263.87deg, rgb(148, 78, 245) 0%, rgb(92, 36, 252) 100%);
+  cursor: pointer;
+  border: none;
+  font-weight: 800;
+  position: relative;
+  overflow: hidden;
+}
+.btn-start:disabled{opacity:.55; cursor:not-allowed}
+.btn-start.is-cooldown::after{
+  content:"";
+  position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  background:linear-gradient(90deg, rgba(255,255,255,.14) var(--cd, 0%), rgba(255,255,255,0) 0);
+}
+
+/* квадратная кнопка скорости */
+.btn-speed{
+  width:44px; height:44px;
+  border-radius:12px;
+  display:inline-grid; place-items:center;
+  font-weight:800; letter-spacing:.04em; color:#fafafa;
+  text-shadow:0 0 20px rgba(138,138,138,.8);
+  text-transform:uppercase;
+  background:linear-gradient(263.87deg, rgb(148, 78, 245) 0%, rgb(92, 36, 252) 100%);
+  border:none; cursor:pointer;
+}
+
+/* ===== ДОП. МОБИЛЬНАЯ ПОЛИРОВКА ===== */
+@media (max-width: 560px){
+  .coeff-center{ font-size: clamp(28px, 9vw, 44px); }
+  .trail #trailPath{ stroke-width:1.6 }
+  .trail #trailGlow{ stroke-width:9 }
+  /* jet/light/fire масштабируются автоматически через em */
+  .fire {
+	left: -100px;
+    top: -100px;}
+  .light {
+    left: -40px;
+    top: -40px;}
+  .jet {
+	left: -40px;
+    top: -40px;
+  }
+}
+
+.tab {
+    position: relative;
+    bottom: 0;
+    top: 100px;
+    z-index: 10;
+    width: 100%;
+    display: flex;
+    background-color: #333;
+    padding: 10px 0;
+    border-radius: 50px;
+}
+
+.tab button {
+    background-color: inherit;
+    flex: 1 0 auto;
+    margin: 0 10px;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 20px;
+    transition: 0.3s;
+    color: #fff;
+    text-align: center;
+    border-radius: 50px;
+    font-size: 16px;
+    font-family: 'Intro', Arial, sans-serif;
+}
+
+.tab button img {
+    max-width: 38px;
+    height: 38px;
+}
+
+.tab button:hover {
+    background-color: #555;
+    transform: translateY(-2px);
+}
+
+.tab button.active {
+    background-color: #666;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Медиазапросы для адаптации на мобильных устройствах */
+@media (max-width: 768px) {
+    .tab {
+        height: 70px; /* Фиксированная высота для планшетов */
+    }
+
+    .tab button {
+        margin: 0 5px;
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+
+    .tab button img {
+        max-width: 32px;
+        height: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tab {
+        height: 70px; /* Фиксированная высота для мобильных устройств */
+    }
+
+
+    .tab button {
+        margin: 0 3px;
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .tab button img {
+        max-width: 28px;
+        height: 28px;
+    }
+}
+
