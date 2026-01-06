@@ -1,0 +1,11 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "saintduxx-cyber.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "saintduxx-cyber.github",
+  "start_url": "/",
+  "theme_color": "#ffffff"
+}
